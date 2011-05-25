@@ -1,23 +1,27 @@
 module Theman
+  # create a new agent object - if a block is passed create! is called
+  #
+  # ==== Parameters
+  # * +conn+    - A database connection from the <tt>PGconn</tt> class 
+  #   or <tt>ActiveRecord::Base.connection.raw_connection</tt> which 
+  #   is the same class.
+  # * +stream+  - path to the data file.
+  # * +options+ - Additional options are <tt>:temporary</tt>, 
+  #   <tt>:on_commit</tt> and <tt>:headers</tt>
+  # ==== Configurable Parameters
+  #   stream    - the location of the data to be sent to Postgres via STDIN (requires a header row)
+  #   datestyle - datestyle of date columns
+  #   
+  # ==== Example
+  #   # Update all customers with the given attributes
+  #   conn  = PGconn.open(:dbname => 'test')
+  #   agent = Theman::Agency.new(conn, 'sample.csv')
+  #   agent.create!
+  #   res = conn.exec("SELECT count(*) FROM #{agent.table_name}")
+  #   res.getvalue(0,0)
   class Agency
     attr_reader :columns, :table_name, :connection
-    # create a new agent object - if a block is passed create! is called
-    #
-    # ==== Parameters
-    # * +conn+ - A database connection from the <tt>PGconn</tt> class 
-    #   or <tt>ActiveRecord::Base.connection.raw_connection</tt> which 
-    #   is the same class.
-    # * +stream+ - path to the data file.
-    # * +options+ - Additional options are <tt>:temporary</tt>, 
-    #   <tt>:on_commit</tt> and <tt>:headers</tt>
-    #
-    # ==== Example
-    #   # Update all customers with the given attributes
-    #   conn  = PGconn.open(:dbname => 'test')
-    #   agent = Theman::Agency.new(conn, 'sample.csv')
-    #   agent.create!
-    #   res = conn.exec("SELECT count(*) FROM #{agent.table_name}")
-    #   res.getvalue(0,0)
+    
     def initialize(conn, stream, options = {}, &block)
       @stream       = stream
       @connection   = conn
@@ -31,33 +35,46 @@ module Theman
         yield self
       end
     end
-    
+
+    # Postgress COPY command using STDIN
+    # - reads chunks of 8192 bytes to save memory
+    # System command for IO subprocesses are piped to 
+    # take advantage of multi cores
+    def create!
+      unless @stream_columns_set || @options[:headers] == false
+        create_stream_columns
+      end
+      connection.exec Table.new(table_name, @columns.to_sql, @options[:temporary], @options[:on_commit]).to_sql
+      pipe_it
+    end
+
+    # adds a serial column called id and sets as primary key
+    # if your data allready has a column called id the column will be called agents_pkey
+    def add_primary_key!
+      name = @columns.include?(:id) ? "agents_pkey" : "id"
+      connection.exec "ALTER TABLE #{table_name} ADD COLUMN #{name} serial PRIMARY KEY;"
+    end
+
+    # analyzes the table for efficent query contstruction on tables larger than ~1000 tuples
+    def analyze!
+      connection.exec "ANALYZE #{table_name};"
+    end
+
+    # explicitly drop table
+    def drop!
+      connection.exec "DROP TABLE #{table_name};"
+      @table_name = nil
+    end
+            
     # create a transaction block for use with :on_commit => :drop
     def transaction(&block)
       connection.exec "BEGIN;"
       yield
       connection.exec "COMMIT;"
     end
-
-    def create_stream_columns #:nodoc:
-      @stream_columns_set = true
-      headers.split(delimiter_regexp).each do |column|
-        @columns.string column
-      end
-    end
-
-    def headers #:nodoc:
-      File.open(@stream, "r"){ |infile| infile.gets }
-    end
-    
-    # create default columns from stream and replace selected
-    # columns with custom data types from block
-    def table(&block)
-      create_stream_columns unless @options[:headers] == false
-      yield @columns
-    end
-    
-    # the location of the data to be sent to Postgres via STDIN (requires a header row)
+        
+    # Attributes for configuration
+    # 
     def stream(arg)
       @stream = arg
     end
@@ -85,6 +102,24 @@ module Theman
     # delimter used in stream - comma is the default
     def delimiter(arg)
       @delimiter = arg
+    end
+    
+    # create default columns from stream and replace selected
+    # columns with custom data types from block
+    def table(&block)
+      create_stream_columns unless @options[:headers] == false
+      yield @columns
+    end
+    
+    def create_stream_columns #:nodoc:
+      @stream_columns_set = true
+      headers.split(delimiter_regexp).each do |column|
+        @columns.string column
+      end
+    end
+
+    def headers #:nodoc:
+      File.open(@stream, "r"){ |infile| infile.gets }
     end
     
     def psql_copy(psql = []) #:nodoc:
@@ -122,43 +157,6 @@ module Theman
       @delimiter_regexp ||= Regexp.new(@delimiter.nil? ? "," : "\\#{@delimiter}")
     end
     
-    # Postgress COPY command using STDIN
-    # - reads chunks of 8192 bytes to save memory
-    # System command for IO subprocesses are piped to 
-    # take advantage of multi cores
-    def create!
-      unless @stream_columns_set || @options[:headers] == false
-        create_stream_columns
-      end
-      connection.exec Table.new(table_name, @columns.to_sql, @options[:temporary], @options[:on_commit]).to_sql
-      pipe_it
-    end
-    
-    # adds a serial column called id and sets as primary key
-    # if your data allready has a column called id the column will be called agents_pkey
-    def add_primary_key!
-      name = @columns.include?(:id) ? "agents_pkey" : "id"
-      connection.exec "ALTER TABLE #{table_name} ADD COLUMN #{name} serial PRIMARY KEY;"
-    end
-    
-    # analyzes the table for efficent query contstruction on tables larger than ~1000 tuples
-    def analyze!
-      connection.exec "ANALYZE #{table_name};"
-    end
-
-    # explicitly drop table
-    def drop!
-      connection.exec "DROP TABLE #{table_name};"
-      @table_name = nil
-    end
-    
-    def system_command #:nodoc:
-      unless sed_command.empty?
-        "cat #{@stream} | sed #{sed_command.join(" | sed ")}" 
-      else
-        "cat #{@stream}"
-      end
-    end
 
     def pipe_it(l = "") #:nodoc:
       connection.exec psql_command.join("; ")
@@ -177,7 +175,15 @@ module Theman
         raise Error.new status_code, res.res_status(status_code), res.result_error_message
       end
     end
-
+    
+    def system_command #:nodoc:
+      unless sed_command.empty?
+        "cat #{@stream} | sed #{sed_command.join(" | sed ")}" 
+      else
+        "cat #{@stream}"
+      end
+    end
+    
     class Error < Exception
       attr_accessor :code, :constant, :error, :context
 
