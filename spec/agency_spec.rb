@@ -8,7 +8,7 @@ describe Theman::Agency, "sed chomp" do
     agent = ::Theman::Agency.new conn, csv do |agent|
       agent.chop 15
     end
-
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
   
@@ -29,6 +29,7 @@ describe Theman::Agency, "data types" do
         t.float :col_five
       end
     end
+    @agent.create!
     @model = Theman::Object.new(@agent.table_name, ActiveRecord::Base)
   end
 
@@ -64,6 +65,7 @@ describe Theman::Agency, "european date styles" do
         t.date :col_date
       end
     end
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
   
@@ -84,6 +86,7 @@ describe Theman::Agency, "US date styles" do
         t.date :col_date
       end
     end
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
   
@@ -104,6 +107,7 @@ describe Theman::Agency, "ISO date styles" do
         t.date :col_date
       end
     end
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
   
@@ -149,6 +153,7 @@ describe Theman::Agency, "create table" do
         t.string :col_two, :limit => 50
       end
     end
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
 
@@ -179,6 +184,7 @@ describe Theman::Agency, "delimiters" do
     agent = ::Theman::Agency.new conn, csv do |agent|
       agent.delimiter "|"
     end
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
 
@@ -201,6 +207,7 @@ describe Theman::Agency, "no headers" do
         t.float :col_five
       end
     end
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
 
@@ -221,6 +228,7 @@ describe Theman::Agency, "with advanced sed" do
         t.string :col_three
       end
     end
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
 

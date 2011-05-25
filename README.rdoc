@@ -33,8 +33,6 @@ rows we created:
 
 == Advanced usage with Active Record and an existing model
 
-Theman will call the <tt>create!</tt> method if you pass in a block.
-
   conn  = ActiveRecord::Base.connection.raw_connection
 
   agent = Theman::Agency.new conn, 'ugly.csv' do |smith|
@@ -49,7 +47,7 @@ Theman will call the <tt>create!</tt> method if you pass in a block.
       t.boolean :exited
     end
   end
-  
+  agent.create!
   MyModel.table_name = agent.table_name
   MyModel.where(:exited => true).count
   

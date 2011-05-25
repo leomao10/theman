@@ -29,7 +29,6 @@ module Theman
 
       if block_given?
         yield self
-        create!
       end
     end
     

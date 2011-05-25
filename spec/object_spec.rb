@@ -11,7 +11,7 @@ describe Theman::Object do
         t.string :col_two
       end
     end
-
+    agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
   end
 
