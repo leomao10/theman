@@ -145,7 +145,7 @@ module Theman
     
     def sed_command(sed = []) #:nodoc:
       sed << nulls_to_sed unless @nulls.nil?
-      sed << @seds unless @seds.nil?
+      sed << Regexp.escape(@seds) unless @seds.nil?
       sed << chop_to_sed unless @chop.nil?
       sed
     end
