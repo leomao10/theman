@@ -20,6 +20,7 @@ module Theman
   #   res = conn.exec("SELECT count(*) FROM #{agent.table_name}")
   #   res.getvalue(0,0)
   class Agency
+    include Theman::Agency::Sed
     attr_reader :columns, :table_name, :connection
     
     def initialize(conn, stream, options = {}, &block)
@@ -83,21 +84,6 @@ module Theman
     def datestyle(arg)
       @datestyle = arg
     end
-    
-    # values in stream to replace with NULL
-    def nulls(*args)
-      @nulls = args
-    end
-
-    # custom seds to parse stream with
-    def seds(*args)
-      @seds = args
-    end
-    
-    # line to finish copy at
-    def chop(line = 1)
-      @chop = line
-    end
 
     # delimter used in stream - comma is the default
     def delimiter(arg)
@@ -136,33 +122,10 @@ module Theman
       psql << psql_copy.join(" ")
       psql
     end
-
-    def sed_header_command(sed = [])
-      sed_command(sed)
-      sed << "-n -e :a -e '1,0{P;N;D;};N;ba'"
-    end
     
-    def sed_command(sed = []) #:nodoc:
-      sed << nulls_to_sed unless @nulls.nil?
-      sed << @seds unless @seds.nil?
-      sed << chop_to_sed unless @chop.nil?
-      sed
-    end
-    
-    def chop_to_sed #:nodoc:
-      "-n -e :a -e '1,#{@chop}!{P;N;D;};N;ba'"
-    end
-
-    def nulls_to_sed #:nodoc:
-      @nulls.map do |regex|
-        "-e 's/#{regex.source}//g'"
-      end
-    end
-
     def delimiter_regexp #:nodoc:
       @delimiter_regexp ||= Regexp.new(@delimiter.nil? ? "," : "\\#{@delimiter}")
     end
-    
 
     def pipe_it(l = "") #:nodoc:
       connection.exec psql_command.join("; ")
