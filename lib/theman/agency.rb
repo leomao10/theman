@@ -119,7 +119,9 @@ module Theman
     end
 
     def headers #:nodoc:
-      File.open(@stream, "r"){ |infile| infile.gets }
+      command = "cat #{@stream} | sed #{sed_header_command.join(" | sed ")}" 
+      p @seds
+      File.popen(command, "r"){ |infile| infile.gets }
     end
     
     def psql_copy(psql = []) #:nodoc:
@@ -136,6 +138,11 @@ module Theman
       psql
     end
 
+    def sed_header_command(sed = [])
+      sed_command(sed)
+      sed << "-n -e :a -e '1,0{P;N;D;};N;ba'"
+    end
+    
     def sed_command(sed = []) #:nodoc:
       sed << nulls_to_sed unless @nulls.nil?
       sed << @seds unless @seds.nil?
