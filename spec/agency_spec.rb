@@ -279,14 +279,13 @@ describe Theman::Agency, "sed with header" do
     agent = Theman::Agency.new conn, csv, :on_commit => :drop
 
     agent = Theman::Agency.new conn, csv do |a|
-      a.seds 's/\\//_/g'
+      a.seds '-e \'s/\\//_/g\''
     end
     agent.create!
     @model = Theman::Object.new(agent.table_name, ActiveRecord::Base)
-    @model.should respond_to :col_one
-    @model.should respond_to :col_two
-    @model.should respond_to :col_three
-    @model.should respond_to :col_four
+    @model.first.should respond_to :col_two
+    @model.first.should respond_to :col_three
+    @model.first.should respond_to :col_four
   end
 end
 

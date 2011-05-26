@@ -120,7 +120,6 @@ module Theman
 
     def headers #:nodoc:
       command = "cat #{@stream} | sed #{sed_header_command.join(" | sed ")}" 
-      p @seds
       File.popen(command, "r"){ |infile| infile.gets }
     end
     
@@ -145,7 +144,7 @@ module Theman
     
     def sed_command(sed = []) #:nodoc:
       sed << nulls_to_sed unless @nulls.nil?
-      sed << Regexp.escape(@seds) unless @seds.nil?
+      sed << @seds unless @seds.nil?
       sed << chop_to_sed unless @chop.nil?
       sed
     end
